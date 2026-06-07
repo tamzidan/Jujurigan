@@ -8,6 +8,7 @@
     "watch": "rbxtsc -w"
   },
   "dependencies": {
+    "@rbxts/raycast-hitbox": "^4.0.1-ts.1",
     "@rbxts/react": "^17.1.0",
     "@rbxts/react-roblox": "^17.1.0",
     "@rbxts/services": "^1.5.0"

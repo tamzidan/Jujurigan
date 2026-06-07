@@ -35,6 +35,15 @@
 					},
 					"EquipRequest": {
 						"$className": "RemoteEvent"
+					},
+					"DevAction": {
+						"$className": "RemoteEvent"
+					},
+					"NotifyClient": {
+						"$className": "RemoteEvent"
+					},
+					"LookSync": {
+						"$className": "RemoteEvent"
 					}
 				}
 			}
