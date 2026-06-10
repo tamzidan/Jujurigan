@@ -99,6 +99,7 @@ RequestAction.OnServerEvent.Connect((player: Player, action: unknown, ...args: u
 
 							if (targetPlayer) {
 								existingWeld.Destroy();
+								player.SetAttribute("IsCarrying", false);
 								targetTorso.CFrame = item.CFrame
 									.mul(new CFrame(0, 0, -1))
 									.mul(CFrame.Angles(0, math.rad(180), 0));
@@ -143,10 +144,9 @@ RequestAction.OnServerEvent.Connect((player: Player, action: unknown, ...args: u
 				) {
 					print(`${player.Name} menggendong ${targetPlayer.Name}`);
 					StateManager.SetState(targetPlayer, "Carried");
+					player.SetAttribute("IsCarrying", true);
 
-					targetRoot.CFrame = rootPart.CFrame
-						.mul(new CFrame(0, 2, 1))
-						.mul(CFrame.Angles(math.rad(-90), 0, 0));
+					targetRoot.CFrame = rootPart.CFrame.mul(CFrame.Angles(0, math.rad(180), 0));
 
 					const weld    = new Instance("WeldConstraint");
 					weld.Name     = "CarryWeld";
@@ -160,7 +160,39 @@ RequestAction.OnServerEvent.Connect((player: Player, action: unknown, ...args: u
 							part.CanCollide  = false;
 						}
 					}
+					const targetHumanoid = targetPlayer.Character!.FindFirstChild("Humanoid") as Humanoid | undefined;
+					if (targetHumanoid) targetHumanoid.PlatformStand = true;
+
+					rootPart.Anchored = true;
+					task.delay(1.5, () => {
+						if (rootPart) rootPart.Anchored = false;
+					});
+					
 					break;
+				}
+			}
+		} else if (action === "DropBaraya") {
+			const existingWeld = char.FindFirstChild("CarryWeld") as WeldConstraint | undefined;
+			if (existingWeld) {
+				const targetTorso  = existingWeld.Part1 as Part;
+				const targetChar   = targetTorso.Parent as Model;
+				const targetPlayer = Players.GetPlayerFromCharacter(targetChar);
+
+				if (targetPlayer) {
+					existingWeld.Destroy();
+					player.SetAttribute("IsCarrying", false);
+
+					for (const part of targetChar.GetChildren()) {
+						if (part.IsA("BasePart")) {
+							part.Massless = false;
+							part.CanCollide = true;
+						}
+					}
+					const targetHumanoid = targetChar.FindFirstChild("Humanoid") as Humanoid | undefined;
+					if (targetHumanoid) targetHumanoid.PlatformStand = false;
+					
+					StateManager.SetState(targetPlayer, "Knock");
+					print(`${player.Name} menjatuhkan ${targetPlayer.Name}`);
 				}
 			}
 		}
@@ -195,6 +227,9 @@ RequestAction.OnServerEvent.Connect((player: Player, action: unknown, ...args: u
 					for (const part of targetPlayer.Character!.GetChildren()) {
 						if (part.IsA("BasePart")) part.CanCollide = true;
 					}
+					const targetHumanoid = targetPlayer.Character!.FindFirstChild("Humanoid") as Humanoid | undefined;
+					if (targetHumanoid) targetHumanoid.PlatformStand = false;
+					
 					StateManager.SetState(targetPlayer, "Injured");
 					break;
 				}

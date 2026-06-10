@@ -16,6 +16,8 @@ export interface JurigAnimations {
 	StunStart:  string;
 	StunLoop:   string;
 	StunEnd:    string;
+	CarryStart: string;
+	CarryIdle:  string;
 }
 
 // --- Tipe Data Suara ---
@@ -72,6 +74,8 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			StunStart:  "rbxassetid://77817294824883",
 			StunLoop:   "rbxassetid://120296808547646",
 			StunEnd:    "rbxassetid://97962248551821",
+			CarryStart: "rbxassetid://92005872197501",
+			CarryIdle:  "rbxassetid://123378744038679",
 		},
 		Sounds: {
 			Miss:     "rbxassetid://104385197343883",
@@ -102,6 +106,8 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			StunStart:  "rbxassetid://77817294824883",
 			StunLoop:   "rbxassetid://120296808547646",
 			StunEnd:    "rbxassetid://97962248551821",
+			CarryStart: "rbxassetid://92005872197501",
+			CarryIdle:  "rbxassetid://123378744038679",
 		},
 		Sounds: {
 			// TODO: Ganti ID di bawah dengan suara khas Kuntilanak
@@ -133,6 +139,8 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			StunStart:  "rbxassetid://77817294824883",
 			StunLoop:   "rbxassetid://120296808547646",
 			StunEnd:    "rbxassetid://97962248551821",
+			CarryStart: "rbxassetid://92005872197501",
+			CarryIdle:  "rbxassetid://123378744038679",
 		},
 		Sounds: {
 			// TODO: Ganti ID di bawah dengan suara khas Pocong

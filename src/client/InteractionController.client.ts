@@ -112,22 +112,30 @@ function ScanForInteractables() {
 		}
 
 	} else if (teamName === "Jurig") {
-		for (const item of Workspace.GetDescendants()) {
-			if (item.Name === "Window" && item.IsA("BasePart")) {
-				const dist = myPos.sub(item.Position).Magnitude;
-				if (dist <= VAULT_RANGE && dist < minDistance) {
-					minDistance = dist; closestAction = "Vault"; closestTitle = "Lompat";
-				}
-			} else if (item.Name === "TumbalHook" && item.IsA("BasePart")) {
-				if (char.FindFirstChild("CarryWeld")) {
+		const isCarrying = char.FindFirstChild("CarryWeld") !== undefined;
+
+		if (isCarrying) {
+			for (const item of Workspace.GetDescendants()) {
+				if (item.Name === "TumbalHook" && item.IsA("BasePart")) {
 					const dist = myPos.sub(item.Position).Magnitude;
 					if (dist <= INTERACT_RANGE && dist < minDistance) {
 						minDistance = dist; closestAction = "Carry"; closestTitle = "Gantung";
 					}
 				}
 			}
-		}
-		if (!char.FindFirstChild("CarryWeld")) {
+			if (closestAction === undefined) {
+				closestAction = "DropBaraya";
+				closestTitle = "Jatuhkan";
+			}
+		} else {
+			for (const item of Workspace.GetDescendants()) {
+				if (item.Name === "Window" && item.IsA("BasePart")) {
+					const dist = myPos.sub(item.Position).Magnitude;
+					if (dist <= VAULT_RANGE && dist < minDistance) {
+						minDistance = dist; closestAction = "Vault"; closestTitle = "Lompat";
+					}
+				}
+			}
 			for (const targetPlayer of Players.GetPlayers()) {
 				if (targetPlayer.Team?.Name === "Baraya") {
 					const tRoot = targetPlayer.Character?.FindFirstChild("HumanoidRootPart") as Part | undefined;
