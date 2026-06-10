@@ -10,17 +10,17 @@ const Events        = Shared.WaitForChild("Events") as Folder;
 const RequestAction = Events.WaitForChild("RequestAction") as RemoteEvent;
 const NotifyClient  = Events.WaitForChild("NotifyClient") as RemoteEvent;
 
-const ATTACK_COOLDOWN = 1.0;
-const CHARGE_TIME     = 0.5;
+const ATTACK_COOLDOWN = 1.5;
+const CHARGE_TIME     = 1.0; // Diperlama agar tidak mudah tidak sengaja nge-charge
 const MAX_CHARGE_TIME = 2.0;
 
 // Speed
 const BASE_SPEED            = 16;
-const CHARGE_SPEED          = 20;
-const HIT_SLOW_SPEED        = 8;
-const HIT_SLOW_DURATION     = 0.6;
-const CHARGED_SLOW_SPEED    = 4;
-const CHARGED_SLOW_DURATION = 1.0;
+const CHARGE_SPEED          = 18; // Tidak terlalu cepat agar Baraya tetap punya peluang kabur
+const HIT_SLOW_SPEED        = 4;  // Lambat drastis seperti sedang memulihkan tenaga
+const HIT_SLOW_DURATION     = 1.5; // Durasi hukuman serangan meleset/kena
+const CHARGED_SLOW_SPEED    = 2;  // Nyaris berhenti total (sangat berisiko)
+const CHARGED_SLOW_DURATION = 2.5; // Hukuman durasi charged hit
 
 let isAttacking  = false;
 let isCharging   = false;
@@ -54,7 +54,7 @@ function resolveHitboxPart(
 		if (tool) {
 			return tool.FindFirstChildWhichIsA("BasePart") as BasePart | undefined;
 		}
-		warn("[Hitbox] Tidak ada Tool — fallback ke Right Arm.");
+		// Fallback diam-diam ke Right Arm jika Tool belum di-equip (menghindari spam warning di log)
 		return character.FindFirstChild("Right Arm") as BasePart | undefined;
 	} else {
 		return character.FindFirstChild("Right Arm") as BasePart | undefined;
@@ -66,7 +66,7 @@ function resolveHitboxPart(
 // ---------------------------------------------------------
 function setupHitbox(character: Model) {
 	if (myHitbox) {
-		myHitbox.Destroy();
+		pcall(() => { myHitbox!.Destroy(); });
 		myHitbox = undefined;
 	}
 
@@ -75,7 +75,7 @@ function setupHitbox(character: Model) {
 
 	const attachPart = resolveHitboxPart(character, charInfo.Combat.HitboxPart);
 	if (!attachPart) {
-		warn(`[Hitbox] Part tidak ditemukan untuk karakter ${charKey} mode ${charInfo.Combat.HitboxPart}`);
+		// Abaikan warning jika sedang R15 dan Tool belum ada, nanti akan dipanggil lagi saat ChildAdded
 		return;
 	}
 
@@ -123,8 +123,11 @@ function setupHitbox(character: Model) {
 			});
 			if (isCharacterPart) return;
 
-			// Lingkungan (Tembok)
-			PlayLocalSound(charInfo.Sounds.HitWall);
+			if (!hasHitWallThisSwing) {
+				hasHitWallThisSwing = true;
+				// Lingkungan (Tembok)
+				PlayLocalSound(charInfo.Sounds.HitWall);
+			}
 		}
 	});
 
@@ -178,8 +181,12 @@ function LoadJurigAnimations() {
 		const anim           = new Instance("Animation");
 		anim.AnimationId     = id as string;
 		const track          = animator.LoadAnimation(anim);
-		track.Priority       = Enum.AnimationPriority.Action;
-		if (name === "Charged") track.Looped = true;
+		track.Priority       = Enum.AnimationPriority.Action4;
+		if (name === "Charged") {
+			track.Looped = true;
+		} else if (name === "Charging") {
+			track.Looped = false;
+		}
 		loadedAnims.set(name as string, track);
 	}
 	print(`[CombatController] Animasi dimuat untuk: ${charInfo.Name} (${charKey})`);
@@ -222,6 +229,8 @@ function ApplySlowAfterHit(slowSpeed: number, duration: number) {
 	});
 }
 
+let hasHitWallThisSwing = false;
+
 // ---------------------------------------------------------
 // EKSEKUSI SERANGAN
 // ---------------------------------------------------------
@@ -232,6 +241,7 @@ function executeAttack(chargeDuration: number) {
 	isAttacking            = true;
 	isCharging             = false;
 	currentChargeAnimState = "none";
+	hasHitWallThisSwing    = false;
 
 	const charKey  = getEquippedKey();
 	const charInfo = GetCharacterInfo(charKey);
@@ -255,15 +265,19 @@ function executeAttack(chargeDuration: number) {
 
 	// Client-side hitbox logic
 	if (myHitbox) {
-		currentAttackType = actionType;
-		hitTargetsPerSwing.clear();
-		myHitbox.HitStart();
-
-		task.delay(duration, () => {
-			if (myHitbox) myHitbox.HitStop();
-			currentAttackType = undefined;
+		const [success] = pcall(() => { myHitbox!.HitStart(); });
+		if (success) {
+			currentAttackType = actionType;
 			hitTargetsPerSwing.clear();
-		});
+
+			task.delay(duration, () => {
+				if (myHitbox) {
+					pcall(() => { myHitbox!.HitStop(); });
+				}
+				currentAttackType = undefined;
+				hitTargetsPerSwing.clear();
+			});
+		}
 	}
 
 	// Visual/Audio for others (and validation)
@@ -324,6 +338,13 @@ RunService.Heartbeat.Connect((_dt) => {
 			currentChargeAnimState = "charging";
 			PlayAnim("Charging", 0.08);
 			SetJurigSpeed(CHARGE_SPEED);
+		} else {
+			const chargingTrack = loadedAnims.get("Charging");
+			// Jika animasi Charging sudah beres 1x putaran tapi tombol masih ditahan,
+			// langsung tahan posenya menggunakan animasi Charged
+			if (chargingTrack && !chargingTrack.IsPlaying && elapsed > 0.1) {
+				PlayAnim("Charged", 0.1);
+			}
 		}
 	} else {
 		if (currentChargeAnimState !== "charged") {

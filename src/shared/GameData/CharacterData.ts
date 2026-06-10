@@ -12,6 +12,10 @@ export interface JurigAnimations {
 	Charging:   string;
 	Charged:    string;
 	ChargedHit: string;
+	WeaponHold: string;
+	StunStart:  string;
+	StunLoop:   string;
+	StunEnd:    string;
 }
 
 // --- Tipe Data Suara ---
@@ -64,6 +68,10 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			Charging:   "rbxassetid://127990702652676",
 			Charged:    "rbxassetid://121600231814274",
 			ChargedHit: "rbxassetid://99365271989430",
+			WeaponHold: "rbxassetid://110727538350674",
+			StunStart:  "rbxassetid://77817294824883",
+			StunLoop:   "rbxassetid://120296808547646",
+			StunEnd:    "rbxassetid://97962248551821",
 		},
 		Sounds: {
 			Miss:     "rbxassetid://104385197343883",
@@ -90,6 +98,10 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			Charging:   "rbxassetid://127990702652676",
 			Charged:    "rbxassetid://121600231814274",
 			ChargedHit: "rbxassetid://99365271989430",
+			WeaponHold: "rbxassetid://110727538350674",
+			StunStart:  "rbxassetid://77817294824883",
+			StunLoop:   "rbxassetid://120296808547646",
+			StunEnd:    "rbxassetid://97962248551821",
 		},
 		Sounds: {
 			// TODO: Ganti ID di bawah dengan suara khas Kuntilanak
@@ -117,6 +129,10 @@ export const CharacterData: Record<string, CharacterInfo> = {
 			Charging:   "rbxassetid://127990702652676",
 			Charged:    "rbxassetid://121600231814274",
 			ChargedHit: "rbxassetid://99365271989430",
+			WeaponHold: "rbxassetid://110727538350674",
+			StunStart:  "rbxassetid://77817294824883",
+			StunLoop:   "rbxassetid://120296808547646",
+			StunEnd:    "rbxassetid://97962248551821",
 		},
 		Sounds: {
 			// TODO: Ganti ID di bawah dengan suara khas Pocong

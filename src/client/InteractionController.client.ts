@@ -1,5 +1,4 @@
 import { ContextActionService, ReplicatedStorage, Players, RunService, Workspace } from "@rbxts/services";
-
 const player = Players.LocalPlayer;
 
 const Shared        = ReplicatedStorage.WaitForChild("TS") as Folder;
@@ -18,9 +17,17 @@ let currentDynamicAction: string | undefined = undefined;
 // ---------------------------------------------------------
 function handleDynamicAction(actionName: string, inputState: Enum.UserInputState, inputObject: InputObject) {
 	if (inputState === Enum.UserInputState.Begin) {
-		if (currentDynamicAction) RequestAction.FireServer(currentDynamicAction);
+		if (currentDynamicAction) {
+			RequestAction.FireServer(currentDynamicAction);
+			if (currentDynamicAction === "StartRepair") {
+				player.SetAttribute("IsRepairing", true);
+			}
+		}
 	} else if (inputState === Enum.UserInputState.End) {
-		if (currentDynamicAction === "StartRepair") RequestAction.FireServer("StopRepair");
+		if (currentDynamicAction === "StartRepair") {
+			RequestAction.FireServer("StopRepair");
+			player.SetAttribute("IsRepairing", false);
+		}
 	}
 }
 

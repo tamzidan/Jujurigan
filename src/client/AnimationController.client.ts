@@ -5,7 +5,7 @@ import { GetCharacterInfo, DEFAULT_CHARACTER_KEY } from "../shared/GameData/Char
 const player = Players.LocalPlayer;
 
 // ---------------------------------------------------------
-// ANIMASI BARAYA (ID statis — tidak berubah per karakter)
+// ANIMASI BARAYA (ID statis)
 // ---------------------------------------------------------
 const sprintAnim = new Instance("Animation");
 sprintAnim.AnimationId = "rbxassetid://111842276303136";
@@ -16,17 +16,42 @@ crouchIdleAnim.AnimationId = "rbxassetid://94284522079811";
 const crouchWalkAnim = new Instance("Animation");
 crouchWalkAnim.AnimationId = "rbxassetid://73928148642491";
 
+const injuredIdleAnim = new Instance("Animation");
+injuredIdleAnim.AnimationId = "rbxassetid://125341237040543";
+
+const injuredWalkAnim = new Instance("Animation");
+injuredWalkAnim.AnimationId = "rbxassetid://90712888924276";
+
+const injuredRunAnim = new Instance("Animation");
+injuredRunAnim.AnimationId = "rbxassetid://88011294949860";
+
+const downIdleAnim = new Instance("Animation");
+downIdleAnim.AnimationId = "rbxassetid://134552238763381";
+
+const downMoveAnim = new Instance("Animation");
+downMoveAnim.AnimationId = "rbxassetid://132750383282272";
+
+const generatorAnim = new Instance("Animation");
+generatorAnim.AnimationId = "rbxassetid://105099851016113";
+
 // Variabel penampung Track Animasi Baraya
 let loadedSprint:     AnimationTrack | undefined = undefined;
 let loadedCrouchIdle: AnimationTrack | undefined = undefined;
 let loadedCrouchWalk: AnimationTrack | undefined = undefined;
 
+let loadedInjuredIdle: AnimationTrack | undefined = undefined;
+let loadedInjuredWalk: AnimationTrack | undefined = undefined;
+let loadedInjuredRun:  AnimationTrack | undefined = undefined;
+let loadedDownIdle:    AnimationTrack | undefined = undefined;
+let loadedDownMove:    AnimationTrack | undefined = undefined;
+let loadedGenerator:   AnimationTrack | undefined = undefined;
+
 // ---------------------------------------------------------
-// ANIMASI JURIG — Dimuat dinamis dari CharacterData
+// ANIMASI JURIG
 // ---------------------------------------------------------
 let loadedJurigAnimations: Map<string, AnimationTrack> = new Map();
+let weaponHoldTrack: AnimationTrack | undefined = undefined;
 
-// Helper: key karakter yang diequip
 function getEquippedKey(): string {
 	const key = player.GetAttribute("EquippedJurig") as string | undefined;
 	return key ?? DEFAULT_CHARACTER_KEY;
@@ -38,27 +63,37 @@ function LoadJurigAnimations(character: Model) {
 	const animator = humanoid.WaitForChild("Animator", 5) as Animator | undefined;
 	if (!animator) return;
 
-	// Baca animation IDs dari CharacterData sesuai karakter yang diequip
 	const charKey  = getEquippedKey();
 	const charInfo = GetCharacterInfo(charKey);
 	const animIds  = charInfo.Animations;
 
 	loadedJurigAnimations.clear();
+	if (weaponHoldTrack) {
+		weaponHoldTrack.Stop();
+		weaponHoldTrack = undefined;
+	}
 
 	for (const [name, id] of pairs(animIds)) {
 		const anim           = new Instance("Animation");
 		anim.AnimationId     = id as string;
 		const track          = animator.LoadAnimation(anim);
-		track.Priority       = Enum.AnimationPriority.Action;
-		if (name === "Charged") track.Looped = true;
+
+		if (name === "WeaponHold") {
+			track.Priority = Enum.AnimationPriority.Action3;
+			track.Looped   = true;
+			weaponHoldTrack = track;
+			continue;
+		}
+
+		track.Priority = Enum.AnimationPriority.Action;
+		if (name === "Charged" || name === "StunLoop") track.Looped = true;
 		loadedJurigAnimations.set(name as string, track);
 	}
 
 	print(`[AnimationController] Animasi Jurig dimuat untuk: ${charInfo.Name} (${charKey})`);
 }
 
-// Ekspor untuk dipakai modul lain jika diperlukan
-export function PlayJurigAnimation(animName: string) {
+function PlayJurigAnimation(animName: string) {
 	const track = loadedJurigAnimations.get(animName);
 	if (track) {
 		for (const [_, existingTrack] of loadedJurigAnimations) {
@@ -71,8 +106,49 @@ export function PlayJurigAnimation(animName: string) {
 }
 
 // ---------------------------------------------------------
-// ANIMASI BARAYA — Setup saat spawn
+// ANIMASI BARAYA
 // ---------------------------------------------------------
+function updateBarayaMovement(speed: number) {
+	const healthState = player.GetAttribute("HealthState") as string | undefined;
+	const isCrouching = player.GetAttribute("IsCrouching") as boolean;
+	const isSprinting = player.GetAttribute("IsSprinting") as boolean;
+
+	let trackToPlay: AnimationTrack | undefined = undefined;
+
+	if (healthState === "Knock") {
+		trackToPlay = speed > 1 ? loadedDownMove : loadedDownIdle;
+	} else if (healthState === "Injured") {
+		if (speed > 1) {
+			trackToPlay = isSprinting ? loadedInjuredRun : loadedInjuredWalk;
+		} else {
+			trackToPlay = loadedInjuredIdle;
+		}
+	} else {
+		// Healthy
+		if (isCrouching) {
+			trackToPlay = speed > 1 ? loadedCrouchWalk : loadedCrouchIdle;
+		} else if (isSprinting && speed > 1) {
+			trackToPlay = loadedSprint;
+		}
+	}
+
+	const allTracks = [
+		loadedCrouchWalk, loadedCrouchIdle, loadedSprint,
+		loadedInjuredIdle, loadedInjuredWalk, loadedInjuredRun,
+		loadedDownIdle, loadedDownMove
+	];
+
+	for (const track of allTracks) {
+		if (track && track !== trackToPlay && track.IsPlaying) {
+			track.Stop(0.2);
+		}
+	}
+
+	if (trackToPlay && !trackToPlay.IsPlaying) {
+		trackToPlay.Play(0.2);
+	}
+}
+
 function setupBarayaAnimations(character: Model) {
 	const humanoid = character.WaitForChild("Humanoid") as Humanoid;
 	let animator   = humanoid.WaitForChild("Animator", 5) as Animator | undefined;
@@ -83,7 +159,7 @@ function setupBarayaAnimations(character: Model) {
 	}
 
 	loadedSprint     = animator.LoadAnimation(sprintAnim);
-	loadedSprint.Priority = Enum.AnimationPriority.Action;
+	loadedSprint.Priority = Enum.AnimationPriority.Action; // Sprint overrides walk/run
 
 	loadedCrouchIdle = animator.LoadAnimation(crouchIdleAnim);
 	loadedCrouchIdle.Priority = Enum.AnimationPriority.Action;
@@ -91,30 +167,49 @@ function setupBarayaAnimations(character: Model) {
 	loadedCrouchWalk = animator.LoadAnimation(crouchWalkAnim);
 	loadedCrouchWalk.Priority = Enum.AnimationPriority.Action;
 
-	humanoid.Running.Connect((speed) => {
-		const isCrouching = player.GetAttribute("IsCrouching") as boolean;
-		const isSprinting = player.GetAttribute("IsSprinting") as boolean;
+	loadedInjuredIdle = animator.LoadAnimation(injuredIdleAnim);
+	loadedInjuredIdle.Priority = Enum.AnimationPriority.Action;
+	loadedInjuredIdle.Looped = true;
 
-		if (isCrouching) {
-			if (speed > 1) {
-				if (loadedCrouchWalk && !loadedCrouchWalk.IsPlaying) loadedCrouchWalk.Play();
-				if (loadedCrouchIdle && loadedCrouchIdle.IsPlaying)  loadedCrouchIdle.Stop();
-			} else {
-				if (loadedCrouchIdle && !loadedCrouchIdle.IsPlaying) loadedCrouchIdle.Play();
-				if (loadedCrouchWalk && loadedCrouchWalk.IsPlaying)  loadedCrouchWalk.Stop();
-			}
-		} else if (isSprinting) {
-			if (speed > 1) {
-				if (loadedSprint && !loadedSprint.IsPlaying) loadedSprint.Play();
-			} else {
-				if (loadedSprint && loadedSprint.IsPlaying)  loadedSprint.Stop();
-			}
-		}
+	loadedInjuredWalk = animator.LoadAnimation(injuredWalkAnim);
+	loadedInjuredWalk.Priority = Enum.AnimationPriority.Action;
+	loadedInjuredWalk.Looped = true;
+
+	loadedInjuredRun = animator.LoadAnimation(injuredRunAnim);
+	loadedInjuredRun.Priority = Enum.AnimationPriority.Action;
+	loadedInjuredRun.Looped = true;
+
+	loadedDownIdle = animator.LoadAnimation(downIdleAnim);
+	loadedDownIdle.Priority = Enum.AnimationPriority.Action;
+	loadedDownIdle.Looped = true;
+
+	loadedDownMove = animator.LoadAnimation(downMoveAnim);
+	loadedDownMove.Priority = Enum.AnimationPriority.Action;
+	loadedDownMove.Looped = true;
+
+	loadedGenerator = animator.LoadAnimation(generatorAnim);
+	loadedGenerator.Priority = Enum.AnimationPriority.Action;
+	loadedGenerator.Looped = true;
+
+	humanoid.Running.Connect((speed) => {
+		updateBarayaMovement(speed);
 	});
 }
 
+function PlayBarayaAction(actionName: "Generator") {
+	if (actionName === "Generator") {
+		if (loadedGenerator && !loadedGenerator.IsPlaying) loadedGenerator.Play();
+	}
+}
+
+function StopBarayaAction(actionName: "Generator") {
+	if (actionName === "Generator") {
+		if (loadedGenerator && loadedGenerator.IsPlaying) loadedGenerator.Stop();
+	}
+}
+
 // ---------------------------------------------------------
-// UPDATE: Pilih animasi sesuai tim
+// LIFECYCLE
 // ---------------------------------------------------------
 function UpdateAnimations() {
 	const char = player.Character;
@@ -122,23 +217,39 @@ function UpdateAnimations() {
 	const team = player.Team ? player.Team.Name : "Arwah";
 
 	if (team === "Jurig") {
-		// Selalu reload agar animasi sesuai karakter yang sedang diequip
 		LoadJurigAnimations(char);
 	} else if (team === "Baraya") {
 		setupBarayaAnimations(char);
 	}
 }
 
-// ---------------------------------------------------------
-// LIFECYCLE
-// ---------------------------------------------------------
-player.CharacterAdded.Connect((_char) => {
+player.CharacterAdded.Connect((char) => {
+	task.wait(1);
 	UpdateAnimations();
+
+	if (player.Team?.Name === "Jurig") {
+		const checkToolAndPlay = () => {
+			if (char.FindFirstChildWhichIsA("Tool")) {
+				if (weaponHoldTrack && !weaponHoldTrack.IsPlaying) weaponHoldTrack.Play(0.2);
+			} else {
+				if (weaponHoldTrack && weaponHoldTrack.IsPlaying) weaponHoldTrack.Stop(0.2);
+			}
+		};
+
+		char.ChildAdded.Connect((child) => {
+			if (child.IsA("Tool")) checkToolAndPlay();
+		});
+
+		char.ChildRemoved.Connect((child) => {
+			if (child.IsA("Tool")) checkToolAndPlay();
+		});
+
+		checkToolAndPlay();
+	}
 });
 
 player.GetPropertyChangedSignal("Team").Connect(UpdateAnimations);
 
-// Re-load animasi Jurig saat karakter berganti (dari lobby/inventory)
 player.GetAttributeChangedSignal("EquippedJurig").Connect(() => {
 	const char = player.Character;
 	if (char && player.Team?.Name === "Jurig") {
@@ -150,46 +261,43 @@ player.GetAttributeChangedSignal("EquippedJurig").Connect(() => {
 if (player.Character) UpdateAnimations();
 
 // ---------------------------------------------------------
-// RESPONS ATRIBUT LARI / JONGKOK (Baraya)
+// RESPONS ATRIBUT (Baraya)
 // ---------------------------------------------------------
-player.GetAttributeChangedSignal("IsSprinting").Connect(() => {
-	const isSprinting = player.GetAttribute("IsSprinting") as boolean;
-	if (isSprinting) {
-		const humanoid = player.Character?.FindFirstChild("Humanoid") as Humanoid | undefined;
-		if (humanoid && humanoid.MoveDirection.Magnitude > 0) {
-			if (loadedSprint && !loadedSprint.IsPlaying) loadedSprint.Play();
+function forceMovementUpdate() {
+	if (player.Team?.Name === "Baraya") {
+		const rootPart = player.Character?.FindFirstChild("HumanoidRootPart") as Part | undefined;
+		if (rootPart) {
+			const speed = rootPart.AssemblyLinearVelocity.Magnitude;
+			updateBarayaMovement(speed);
 		}
-	} else {
-		if (loadedSprint && loadedSprint.IsPlaying) loadedSprint.Stop();
 	}
-});
+}
 
-player.GetAttributeChangedSignal("IsCrouching").Connect(() => {
-	const isCrouching = player.GetAttribute("IsCrouching") as boolean;
-	if (isCrouching) {
-		const humanoid = player.Character?.FindFirstChild("Humanoid") as Humanoid | undefined;
-		if (humanoid && humanoid.MoveDirection.Magnitude > 0) {
-			if (loadedCrouchWalk && !loadedCrouchWalk.IsPlaying) loadedCrouchWalk.Play();
-		} else {
-			if (loadedCrouchIdle && !loadedCrouchIdle.IsPlaying) loadedCrouchIdle.Play();
-		}
+player.GetAttributeChangedSignal("IsSprinting").Connect(forceMovementUpdate);
+player.GetAttributeChangedSignal("IsCrouching").Connect(forceMovementUpdate);
+player.GetAttributeChangedSignal("HealthState").Connect(forceMovementUpdate);
+
+player.GetAttributeChangedSignal("IsRepairing").Connect(() => {
+	const isRepairing = player.GetAttribute("IsRepairing") as boolean;
+	if (isRepairing) {
+		PlayBarayaAction("Generator");
 	} else {
-		if (loadedCrouchIdle && loadedCrouchIdle.IsPlaying) loadedCrouchIdle.Stop();
-		if (loadedCrouchWalk && loadedCrouchWalk.IsPlaying) loadedCrouchWalk.Stop();
+		StopBarayaAction("Generator");
 	}
 });
 
 // ---------------------------------------------------------
-// SUARA LANGKAH JONGKOK (Baraya) — Hilangkan saat jongkok
+// SUARA LANGKAH JONGKOK (Baraya) — Hilangkan saat jongkok/down
 // ---------------------------------------------------------
 RunService.RenderStepped.Connect(() => {
 	const char = player.Character;
-	if (char) {
+	if (char && player.Team?.Name === "Baraya") {
 		const rootPart = char.FindFirstChild("HumanoidRootPart") as Part | undefined;
 		if (rootPart) {
 			const runningSound = rootPart.FindFirstChild("Running") as Sound | undefined;
 			if (runningSound) {
-				if (player.GetAttribute("IsCrouching")) {
+				const healthState = player.GetAttribute("HealthState") as string | undefined;
+				if (player.GetAttribute("IsCrouching") || healthState === "Knock") {
 					runningSound.Volume = 0;
 				} else {
 					const currentSpeed = rootPart.AssemblyLinearVelocity.Magnitude;
